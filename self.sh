@@ -10,27 +10,14 @@ updateme(){
 	if [[ -e ~/version.txt ]];then
 		rm -f ~/version.txt
 	fi
-	wget -q https://raw.githubusercontent.com/Readour/AR-B-P-B/master/version.txt
-	version1=`cat ~/version.txt`
-	version2=`cat /usr/local/SSR-Bash-Python/version.txt`
-	if [[ "$version1" == "$version2" ]];then
-		echo "你当前已是最新版"
-		sleep 2s
-		ssr
-	else
-		echo "当前最新版本为$version1,输入y进行更新，其它按键退出"
-		read -n 1 yn
-		if [[ $yn == [Yy] ]];then
-			export yn=n
-			wget -q -N https://raw.githubusercontent.com/Readour/AR-B-P-B/master/install.sh && bash install.sh
-			sleep 3s
-			clear
-			ssr || exit 0
-		else
-			echo "输入错误，退出"
-			bash /usr/local/SSR-Bash-Python/self.sh
-		fi
-	fi
+	# 安全警告：由于原始 GitHub 仓库(Readour/AR-B-P-B)已被删除，
+	# 不再从外部源检查版本或下载更新，以防止供应链攻击。
+	echo "警告: 自动更新功能已禁用 - 原作者的仓库已删除，"
+	echo "从外部源下载代码可能带来严重的安全风险。"
+	echo ""
+	echo "如需更新，请手动从可信源获取最新版本。"
+	sleep 3s
+	ssr
 }
 sumdc(){
 	sum1=`cat /proc/sys/kernel/random/uuid| cksum | cut -f1 -d" "|head -c 2`
@@ -61,17 +48,11 @@ if [[ $choice == 1 ]];then
 	updateme
 fi
 if [[ $choice == 2 ]];then
-	echo "切换到开发版之后你将面临一些奇怪的问题"
-	sumdc
-	if [[ "$sv" == "$solve" ]];then
-		wget -q -N https://raw.githubusercontent.com/Readour/AR-B-P-B/master/install.sh && bash install.sh develop
-		sleep 3s
-		clear
-		ssr || exit 0
-	else
-		echo "计算错误，正确结果为$solve"
-		bash /usr/local/SSR-Bash-Python/self.sh
-	fi
+	echo "切换到开发版功能已禁用 - 原仓库已删除"
+	echo "从外部源下载代码可能带来严重的安全风险。"
+	echo ""
+	sleep 3s
+	bash /usr/local/SSR-Bash-Python/self.sh
 fi
 if [[ $choice == 3 ]];then
 	bash /usr/local/SSR-Bash-Python/self-check.sh
@@ -80,7 +61,18 @@ if [[ $choice == 4 ]];then
 	echo "你在做什么？你真的这么狠心吗？"
 	sumdc
 	if [[ "$sv" == "$solve" ]];then
-		wget -q -N https://raw.githubusercontent.com/Readour/AR-B-P-B/master/install.sh && bash install.sh uninstall
+		echo "正在执行卸载..."
+		if [[ -f /usr/local/SSR-Bash-Python/install.sh ]]; then
+			bash /usr/local/SSR-Bash-Python/install.sh uninstall
+		elif [[ -f "${PWD}/install.sh" ]]; then
+			bash "${PWD}/install.sh" uninstall
+		else
+			echo "错误：找不到 install.sh 文件，无法执行卸载。"
+			echo "请手动删除以下目录："
+			echo "  rm -rf /usr/local/bin/ssr"
+			echo "  rm -rf /usr/local/SSR-Bash-Python"
+			echo "  rm -rf /usr/local/shadowsocksr"
+		fi
 		exit 0
 	else
 		echo "计算错误，正确结果为$solve"

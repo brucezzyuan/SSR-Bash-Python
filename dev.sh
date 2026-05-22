@@ -22,17 +22,17 @@ done
 if [[ $devc == 1 ]];then
 	rm -rf /usr/local/bin/ssr
 	cd /usr/local/SSR-Bash-Python/
-	git pull
-	wget -q -N -O /usr/local/bin/ssr https://raw.githubusercontent.com/readour/AR-B-P-B/master/ssr
-	chmod +x /usr/local/bin/ssr
-	echo 'SSR-Bash升级成功！'
+	# 安全警告：原始远端仓库(Readour/AR-B-P-B)已被删除
+	# 使用本地文件代替从远端下载，防止供应链攻击
+	echo "更新功能被禁用 - 原仓库已删除"
+	echo "请手动从可信源更新"
+	sleep 2s
 	ssr
 fi
 
 if [[ $devc == 2 ]];then
-	wget -4qO- softs.pw/Bash/Get_Out_Spam.sh -O /tmp/Get_Out_Spam.sh
-	bash /tmp/Get_Out_Spam.sh
-	rm -f /tmp/Get_Out_Spam.sh
+	echo "一键封禁BT下载/SPAM功能已禁用"
+	echo "原脚本源(softs.pw)已不可信，跳过执行以防止RCE攻击。"
 fi
 
 if [[ $devc == 3 ]];then

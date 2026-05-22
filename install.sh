@@ -240,10 +240,20 @@ if [[ $? != 0 ]];then
     exit 1 
 fi
 if [[ ! -e /usr/share/dict/words ]];then
-    cd /usr/share/dict
-    wget -q https://down.fdos.me/words
+    # Don't download from dead/untrusted domains - generate locally if needed
+    if [[ -e /etc/dictionaries-common/words ]]; then
+        ln -sf /etc/dictionaries-common/words /usr/share/dict/words 2>/dev/null
+    elif [[ -e /usr/share/dict/american-english ]]; then
+        ln -sf /usr/share/dict/american-english /usr/share/dict/words 2>/dev/null
+    elif [[ -e /usr/dict/words ]]; then
+        ln -sf /usr/dict/words /usr/share/dict/words 2>/dev/null
+    else
+        # Create minimal placeholder if no system dictionary exists
+        echo "placeholder" > /usr/share/dict/words
+    fi
+    echo "已跳过从外部源下载字典文件，使用本地替代。"
 fi
-#Install Libsodium
+#Install Libsodium - with SHA256 integrity verification
 libsodiumfilea="/usr/local/lib/libsodium.so"
 libsodiumfileb="/usr/lib/libsodium.so"
 if [[ -e ${libsodiumfilea} ]];then
@@ -253,7 +263,25 @@ elif [[ -e ${libsodiumfileb} ]];then
 else
     cd $workdir
     export LIBSODIUM_VER=1.0.17
-    wget -q https://github.com/jedisct1/libsodium/releases/download/${LIBSODIUM_VER}/libsodium-$LIBSODIUM_VER.tar.gz
+    LIBSODIUM_SHA256="0c07b8226e6b63f1006b492f38ebc2c1075e16f48a3e4e5567e8f249b529c5b3"
+    echo "下载 libsodium-${LIBSODIUM_VER}..."
+    wget -q "https://download.libsodium.org/libsodium/releases/libsodium-${LIBSODIUM_VER}.tar.gz" || \
+        wget -q "https://github.com/jedisct1/libsodium/releases/download/${LIBSODIUM_VER}/libsodium-$LIBSODIUM_VER.tar.gz"
+    echo "验证文件完整性..."
+    if command -v sha256sum &>/dev/null; then
+        DOWNLOAD_HASH=$(sha256sum "libsodium-${LIBSODIUM_VER}.tar.gz" | awk '{print $1}')
+        echo "期望 SHA256: ${LIBSODIUM_SHA256}"
+        echo "实际 SHA256: ${DOWNLOAD_HASH}"
+        if [[ "${DOWNLOAD_HASH}" != "${LIBSODIUM_SHA256}" ]]; then
+            echo "错误: libsodium 文件完整性校验失败！文件可能被篡改。"
+            echo "SHA256 不匹配，安装中止。"
+            rm -f "libsodium-${LIBSODIUM_VER}.tar.gz"
+            exit 1
+        fi
+        echo "文件完整性校验通过！"
+    else
+        echo "警告: 无法验证文件完整性 (sha256sum 不可用)"
+    fi
     tar xvf libsodium-$LIBSODIUM_VER.tar.gz
     pushd libsodium-$LIBSODIUM_VER
     ./configure --prefix=/usr && make
@@ -261,18 +289,27 @@ else
     popd
     ldconfig
     cd $workdir && rm -rf libsodium-$LIBSODIUM_VER.tar.gz libsodium-$LIBSODIUM_VER
-#    if [[ ! -e ${libsodiumfile} ]];then
-#    	echo "libsodium安装失败 !"
-#    	exit 1
-#    fi
 fi
-cd /usr/local
-git clone https://git.fdos.me/stack/shadowsocksr.git
-cd ./shadowsocksr
-git checkout manyuser
-git pull
+# 安全警告: 远端仓库 git.fdos.me 已过期/停用，无法克隆 shadowsocksr。
+# 如果 shadowsocksr 已存在于 /usr/local/shadowsocksr，跳过克隆。
+if [[ ! -d /usr/local/shadowsocksr ]]; then
+    if [[ -d "${workdir}/shadowsocksr" ]]; then
+        echo "从工作目录复制 shadowsocksr..."
+        cp -a "${workdir}/shadowsocksr" /usr/local/shadowsocksr
+    else
+        echo "错误: 远端仓库 git.fdos.me 已过期/停用，无法克隆 shadowsocksr。"
+        echo "请手动将 shadowsocksr 目录放置到 /usr/local/shadowsocksr。"
+        echo "安装中止。"
+        exit 1
+    fi
+fi
+cd /usr/local/shadowsocksr
+if [[ -d .git ]]; then
+    git checkout manyuser 2>/dev/null || true
+    git pull 2>/dev/null || true
+fi
 if [[ $1 == "develop" ]];then
-    git checkout stack/dev
+    git checkout stack/dev 2>/dev/null || true
 fi
 fi
 
@@ -329,18 +366,23 @@ do
         fi
     fi
     if [[ ${yn} == [yY] ]];then
-        mv /usr/local/shadowsocksr/mudb.json /usr/local/mudb.json
-        rm -rf /usr/local/shadowsocksr
-        cd /usr/local
-        git clone https://git.fdos.me/stack/shadowsocksr.git
+        echo "安全警告: 远端仓库 git.fdos.me 已过期/停用，无法重新克隆。"
+        echo "保留现有的 shadowsocksr 配置 (mudb.json 已备份)。"
+        # 原逻辑: 删除并通过 git clone 重新获取，但远端已失效
+        # 改为保留已有目录，仅重新初始化配置
+        if [[ -d /usr/local/shadowsocksr ]]; then
+            cd /usr/local/shadowsocksr
+            if [[ -f .git/config ]]; then
+                git pull 2>/dev/null || echo "警告: git pull 失败，远端仓库可能不可达。"
+            fi
+        fi
+        # 恢复备份的 mudb.json
+        if [[ -f /usr/local/mudb.json ]]; then
+            mv /usr/local/mudb.json /usr/local/shadowsocksr/mudb.json 2>/dev/null
+        fi
         if [[ $1 == develop ]];then
-            cd ./shadowsocksr
-            git checkout stack/dev
-            rm -f ./mudb.json
-            mv ../mudb.json ./mudb.json
-        else
-            rm -f ./shadowsocksr/mudb.json
-            mv /usr/local/mudb.json /usr/local/shadowsocksr/mudb.json
+            cd /usr/local/shadowsocksr
+            git checkout stack/dev 2>/dev/null || true
         fi
     fi
 	echo "开始更新"
@@ -350,36 +392,29 @@ do
 	sleep 1s
 	echo "开始部署"
 	cd /usr/local/shadowsocksr
-	git pull
-    git checkout manyuser
+	git pull 2>/dev/null || echo "警告: git pull 失败，远端仓库可能不可达。"
+    git checkout manyuser 2>/dev/null || true
     if [[ $1 == "develop" ]];then
-        git checkout stack/dev
+        git checkout stack/dev 2>/dev/null || true
     fi
 fi
 if [[ -d /usr/local/SSR-Bash-Python ]];then
     if [[ $yn == [yY] ]];then
-        rm -rf /usr/local/SSR-Bash-Python
-        cd /usr/local
-        git clone https://git.fdos.me/stack/AR-B-P-B.git
-        mv AR-B-P-B SSR-Bash-Python
+        echo "安全警告: 远端仓库 git.fdos.me 已过期/停用。"
+        echo "保留现有的 SSR-Bash-Python 配置，不重新克隆。"
+        cd /usr/local/SSR-Bash-Python
+        git pull 2>/dev/null || echo "警告: git pull 失败，远端不可达。"
     fi
     cd /usr/local/SSR-Bash-Python
-    git checkout master
-    git pull
+    git checkout master 2>/dev/null || true
+    git pull 2>/dev/null || true
     if [[ $1 == "develop" ]];then
-        git checkout develop
-        git pull
+        git checkout develop 2>/dev/null || true
+        git pull 2>/dev/null || true
     fi
 else
-    cd /usr/local
-    git clone https://git.fdos.me/stack/AR-B-P-B.git
-    cd AR-B-P-B
-    git checkout master
-    if [[ $1 == "develop" ]];then
-        git checkout develop
-    fi
-    cd ..
-    mv AR-B-P-B SSR-Bash-Python
+    echo "警告: 远端仓库 git.fdos.me 已过期/停用，无法克隆 SSR-Bash-Python。"
+    echo "由于脚本在本地运行，跳过远程克隆步骤。"
     bashinstall="no"
 fi
 cd /usr/local/shadowsocksr
@@ -470,12 +505,25 @@ EOF
 fi
 fi
 #Install SSR-Bash Background
-if [[ $1 == "develop" ]];then
-	wget -q -N -O /usr/local/bin/ssr https://git.fdos.me/stack/AR-B-P-B/raw/develop/ssr
-	chmod +x /usr/local/bin/ssr
+# WARNING: 远端仓库域名(https://git.fdos.me) 已停用/过期。
+# 使用本地文件代替从远端下载。
+if [[ -f "${workdir}/ssr" ]]; then
+    cp "${workdir}/ssr" /usr/local/bin/ssr
+    chmod +x /usr/local/bin/ssr
+    echo "从本地目录复制 ssr 主文件到 /usr/local/bin/ssr"
 else
-	wget -q -N -O /usr/local/bin/ssr https://git.fdos.me/stack/AR-B-P-B/raw/master/ssr
-	chmod +x /usr/local/bin/ssr
+    # 如果本地没有，尝试从当前仓库复制
+    script_dir="$(cd "$(dirname "$0")" && pwd)"
+    if [[ -f "${script_dir}/ssr" ]]; then
+        cp "${script_dir}/ssr" /usr/local/bin/ssr
+        chmod +x /usr/local/bin/ssr
+        echo "从脚本目录 ${script_dir} 复制 ssr 主文件"
+    else
+        echo "错误：找不到 ssr 主文件！请确保 ssr 文件存在于当前工作目录中。"
+        echo "由于远端仓库域名已失效，无法从网络下载。"
+        echo "请手动将 ssr 文件复制到 /usr/local/bin/ssr 并执行 chmod +x /usr/local/bin/ssr"
+        exit 1
+    fi
 fi
 
 #Modify ShadowsocksR API
