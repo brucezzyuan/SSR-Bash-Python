@@ -3,6 +3,17 @@ export PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 #Check Root
 [ $(id -u) != "0" ] && { echo "Error: You must be root to run this script"; exit 1; }
+
+# Security Check: Require explicit confirmation for system-altering operations
+SECURITY_WARNING="此操作将修改系统配置，是否继续？(输入YES确认，其他键取消)"
+echo "================ SSR管理面板 ================"
+echo "警告：此脚本需要root权限，将能够修改系统设置"
+echo -n "确认运行? (输入YES确认): "
+read -t 10 confirm_run
+if [[ "$confirm_run" != "YES" ]]; then
+    echo "操作已取消"
+    exit 0
+fi
 echo "*******************"
 echo ""
 echo "欢迎使用 AR (Python Base) 

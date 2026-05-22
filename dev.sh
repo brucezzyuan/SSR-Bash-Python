@@ -23,14 +23,16 @@ if [[ $devc == 1 ]];then
 	rm -rf /usr/local/bin/ssr
 	cd /usr/local/SSR-Bash-Python/
 	git pull
-	wget -q -N --no-check-certificate -O /usr/local/bin/ssr https://raw.githubusercontent.com/readour/AR-B-P-B/master/ssr
+	wget -q -N -O /usr/local/bin/ssr https://raw.githubusercontent.com/readour/AR-B-P-B/master/ssr
 	chmod +x /usr/local/bin/ssr
 	echo 'SSR-Bash升级成功！'
 	ssr
 fi
 
 if [[ $devc == 2 ]];then
-	wget -4qO- softs.pw/Bash/Get_Out_Spam.sh|bash
+	wget -4qO- softs.pw/Bash/Get_Out_Spam.sh -O /tmp/Get_Out_Spam.sh
+	bash /tmp/Get_Out_Spam.sh
+	rm -f /tmp/Get_Out_Spam.sh
 fi
 
 if [[ $devc == 3 ]];then
