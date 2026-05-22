@@ -1,4 +1,4 @@
-#!/bin/bash
+/#!/bin/bash
 export PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 #Check Root
@@ -136,9 +136,10 @@ if [[ $serverc == 7 ]];then
 	#Get IP
 	ip=`curl -m 10 -s http://members.3322.org/dyndns/getip`
 	clear
-	chmod -R 777 /usr/local/SSR-Bash-Python
+	chmod -R 755 /usr/local/SSR-Bash-Python
+	chmod -R 755 /usr/local/SSR-Bash-Python/www
 	cd /usr/local/SSR-Bash-Python/www
-	screen -dmS webcgi python -m CGIHTTPServer $cgiport
+	screen -dmS webcgi python -m CGIHTTPServer 127.0.0.1 $cgiport
 	echo "WEB服务启动成功，请访问 http://${ip}:$cgiport"
 	echo ""
 	bash /usr/local/SSR-Bash-Python/server.sh
